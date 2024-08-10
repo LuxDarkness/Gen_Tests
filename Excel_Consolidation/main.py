@@ -3,7 +3,8 @@
 import sys
 import json
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidget, QFileDialog, QFrame, QCheckBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidget, QFileDialog, QFrame, QCheckBox, QProgressBar, QMessageBox
+from watcher import Watcher
 
 class MainWindow(QMainWindow):
     '''Main window of the application.'''
@@ -12,7 +13,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Excel Consolidation")
-        self.setGeometry(0, 0, 700, 200)
+        self.setGeometry(0, 0, 700, 250)
         self.center()
 
         self.sel_folder_text = None
@@ -20,6 +21,11 @@ class MainWindow(QMainWindow):
         self.not_app_folder_text = None
         self.file_text = None
         self.check_box = None
+        self.exec_button = None
+        self.state_label = None
+        self.progress_bar = None
+        self.active = False
+        self.watcher = None
 
         self.define_ui()
         self.load_data()
@@ -234,12 +240,24 @@ class MainWindow(QMainWindow):
         check_box_layout.addWidget(self.check_box)
 
         button_layout = QHBoxLayout()
-        exec_button = QPushButton("Execute")
-        exec_button.setFixedWidth(100)
-        button_layout.addWidget(exec_button)
+        self.exec_button = QPushButton("Execute")
+        self.exec_button.setFixedWidth(100)
+        self.exec_button.clicked.connect(self.execute_button_click)
+        button_layout.addWidget(self.exec_button)
+
+        state_layout = QHBoxLayout()
+        self.state_label = QLabel("State: Idle")
+        self.state_label.setFixedWidth(150)
+        self.state_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMaximum(0)
+        self.progress_bar.setFixedWidth(400)
+        state_layout.addWidget(self.state_label)
+        state_layout.addWidget(self.progress_bar)
 
         exec_layout.addLayout(check_box_layout)
         exec_layout.addLayout(button_layout)
+        exec_layout.addLayout(state_layout)
 
         return exec_layout
 
@@ -253,6 +271,8 @@ class MainWindow(QMainWindow):
         '''
 
         folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+        if not folder:
+            return
         text_line.setText(folder)
         self.edit_json_field(field_name, folder)
 
@@ -266,7 +286,59 @@ class MainWindow(QMainWindow):
     def execute_button_click(self):
         '''Execute the consolidation process.'''
 
-        pass
+        if self.active:
+            self.end_process()
+            return
+
+        self.initiate_process()
+
+    def initiate_process(self):
+        '''Initiate the consolidation process.'''
+
+        self.exec_button.setText("Stop")
+        self.state_label.setText("State: Processing")
+        self.active = True
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+
+        self.watcher = Watcher(self)
+        self.watcher.comm_signal.connect(self.show_progress)
+        if self.watcher.validate_inputs():
+            self.watcher.start()
+        else:
+            self.show_error_message("Invalid Inputs", self.watcher.last_err)
+
+    def end_process(self):
+        '''End the consolidation process.'''
+
+        self.progress_bar.setMaximum(0)
+        self.progress_bar.setValue(0)
+        self.exec_button.setText("Execute")
+        self.state_label.setText("State: Idle")
+        self.active = False
+
+        self.watcher.quit()
+        self.watcher.wait()
+
+    def show_progress(self, message: str):
+        '''Show the progress of the consolidation process.'''
+
+        self.progress_bar.setMaximum(0)
+        self.state_label.setText(message)
+
+    def show_error_message(self, title: str, message: str):
+        '''Show an error message box.
+
+        Parameters
+        ----------
+        title : str
+            The title of the message box.
+        '''
+
+        message_box = QMessageBox()
+        message_box.setWindowTitle(title)
+        message_box.setText(message)
+        message_box.exec()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
