@@ -84,7 +84,7 @@ class MainWindow(QMainWindow):
     def load_data(self):
         '''Load the data from the JSON configuration file.'''
 
-        with open("Resources/config.json", "r", encoding='UTF-8') as file:
+        with open("./Resources/config.json", "r", encoding='UTF-8') as file:
             data = json.load(file)
 
         self.sel_folder_text.setText(data["Observe_Folder"])
@@ -193,16 +193,16 @@ class MainWindow(QMainWindow):
         return not_app_folder_layout
 
     def file_layout(self) -> QHBoxLayout:
-        '''Define the layout for the file type to be observed.
+        '''Define the layout for the file type to consolidate.
 
         Returns
         -------
         file_layout : QHBoxLayout
-            Layout for the file type to be observed.
+            Layout for the file type to consolidate.
         '''
 
         file_layout = QHBoxLayout()
-        file_label = QLabel("File to be observed:")
+        file_label = QLabel("File to consolidate:")
         file_label.setFixedWidth(170)
         self.file_text = QLineEdit()
         self.file_text.setFixedWidth(350)
@@ -247,7 +247,7 @@ class MainWindow(QMainWindow):
 
         state_layout = QHBoxLayout()
         self.state_label = QLabel("State: Idle")
-        self.state_label.setFixedWidth(150)
+        self.state_label.setFixedWidth(250)
         self.state_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximum(0)
