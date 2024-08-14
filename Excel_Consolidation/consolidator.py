@@ -91,12 +91,12 @@ class Consolidator:
         report_sheet.range("C1").value = "Date and Time"
         report_sheet.range("D1").value = "Status"
         report_sheet.range("E1").value = "Is Duplicate File"
-        report_sheet.range("F1").value = "Error Message"
+        report_sheet.range("F1").value = "Message"
 
     def register_report(self, report_sheet: xw.Sheet, file_path: str, sheet_name: str,
                         status: str = "Success", msg: str = ""):
         '''This method is used to register each processed file and sheet to the report
-        
+
         Parameters
         ----------
         report_sheet: xw.Sheet
@@ -111,15 +111,53 @@ class Consolidator:
             An additional message of the process
         '''
 
-        if not report_sheet.range('A2').value:
-            row = report_sheet.range('A2')
-        else:
+        row = report_sheet.range('A2')
+        if report_sheet.range('A2').value:
             row = report_sheet.range('A' + str(report_sheet.range('A1').end('down').row + 1))
 
         if not self.moved:
             msg = "Sheets copied but failed to move the file"
         row.value = [os.path.basename(file_path), sheet_name,
                     datetime.datetime.now(), status, self.is_duplicate, msg]
+
+    def register_info(self, file_path: str, status: str, msg: str):
+        '''This method is used to register the info of special cases
+
+        Parameters
+        ----------
+        file_path: str
+            The file path of the processed file
+        status: str
+            The status of the process
+        msg: str
+            An additional message of the process
+        '''
+
+        app = None
+        try:
+            app = xw.App(visible=False)
+            wb = xw.Book(self.consolidator_file)
+
+            if not self.report_sheet in [sheet.name for sheet in wb.sheets]:
+                wb.sheets.add(self.report_sheet, before=wb.sheets[0])
+
+            ws = wb.sheets[self.report_sheet]
+            self.setup_report(ws)
+
+            row = ws.range('A2')
+            if ws.range('A2').value:
+                row = ws.range('A' + str(ws.range('A1').end('down').row + 1))
+
+            full_msg = f"File: {os.path.basename(file_path)}\n{msg}"
+            row.value = ["-", "N/A", datetime.datetime.now(), status, False, full_msg]
+
+            wb.save()
+            wb.close()
+        except Exception as e:
+            print(f"Error: {str(e)}")
+        finally:
+            if app is not None:
+                app.quit()
 
     def check_duplicates(self, target_wb: xw.Book, file_path: str) -> bool:
         '''This method is used to check if the file is a duplicate'''
@@ -132,11 +170,9 @@ class Consolidator:
             + str(last_row)) if cell.value]
         unique_files = set(files_list)
 
-        if self.enable_duplicates and file_name in unique_files:
-            self.is_duplicate = True
-            return True
-
         if self.enable_duplicates:
+            if file_name in unique_files:
+                self.is_duplicate = True
             return True
 
         if file_name in unique_files:

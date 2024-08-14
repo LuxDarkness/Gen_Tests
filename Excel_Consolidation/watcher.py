@@ -50,8 +50,8 @@ class Watcher(QThread):
         try:
             while self.main_window.active:
                 time.sleep(3)
-        except Exception:
-            pass
+        except Exception as e:
+            self.comm_signal.emit(f"Error: {str(e)}")
         finally:
             self.observer.stop()
 
@@ -61,7 +61,7 @@ class Watcher(QThread):
         '''This method is used to process the file'''
 
         if not self.check_permission(file_path, self.processed_folder):
-            print(f"Permission denied for file: {file_path}")
+            self.register_report(file_path, "Failed", "Permission denied")
             return
 
         self.consolidator = Consolidator(
@@ -74,14 +74,22 @@ class Watcher(QThread):
         '''This method is used to move the file to the not applicable folder'''
 
         if not self.check_permission(file_path, self.not_applicable_folder):
-            print(f"Permission denied for file: {file_path}")
+            self.register_report(file_path, "Failed", "Permission denied")
             return
 
         destination = os.path.join(self.not_applicable_folder, os.path.basename(file_path))
         if os.path.exists(destination):
             os.remove(destination)
         shutil.move(file_path, destination)
+        self.register_report(file_path, "Success", "Moved file with file type not supported")
         self.comm_signal.emit(self.WAIT_MSG)
+
+    def register_report(self, file_path, status, msg):
+        '''This method is used to register the report'''
+
+        self.consolidator = Consolidator(
+                self.file_path, self.report_sheet, self.main_window.check_box.isChecked())
+        self.consolidator.register_info(file_path, status, msg)
 
     def validate_inputs(self):
         '''This method is used to validate the inputs'''
@@ -114,7 +122,7 @@ class Watcher(QThread):
 
         if not os.access(self.observe_folder, os.R_OK):
             print(f"Permission denied for folder: {self.observe_folder}")
-            raise PermissionError("Permission denied")
+            raise PermissionError("Observed Folder Permission Denied")
 
         for file in os.listdir(self.observe_folder):
             file_path = os.path.join(self.observe_folder, file)
